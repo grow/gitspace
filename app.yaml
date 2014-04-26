@@ -1,0 +1,46 @@
+application: grow-prod
+version: git
+api_version: 1
+runtime: python27
+threadsafe: true
+
+#vm: true
+#manual_scaling:
+#  instances: 1
+#vm_settings:
+#  machine_type: n1-standard-1  # == Default
+
+env_variables:
+  GCS_BUCKET: grow-prod-grow
+  GCS_SERVICE_ACCOUNT_EMAIL: 578372381550-gg1pnu229oppq27dc8mdihq51qbu6aq9@developer.gserviceaccount.com
+
+libraries:
+- name: pycrypto
+  version: latest
+- name: jinja2
+  version: 2.6
+- name: webapp2
+  version: latest
+
+handlers:
+
+- url: /_ah/admin/interactive.*
+  script: google.appengine.ext.admin.application
+  login: admin
+  secure: always
+
+#- url: /_grow/static
+#  static_dir: launchpad/frontend/static/
+
+- url: /.*
+  script: gitspace.main.app
+
+skip_files:
+- ^(.*/)?.*\.py[co]
+- ^(.*/)?.*\.so$
+- ^(.*/)?.*\_test.(html|js|py)$
+- ^(.*/)?app\.yaml
+- ^(.*/)?app\.yml
+- ^(.*/)?index\.yaml
+- ^(.*/)?index\.yml
+- ^(.*/)?run_tests.py
