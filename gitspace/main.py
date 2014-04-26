@@ -26,4 +26,4 @@ def repo_application():
   return middleware
 
 
-app = repo_application()
+application = repo_application()
