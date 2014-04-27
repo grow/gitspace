@@ -1,1 +1,1 @@
-uwsgi --http :8080 --wsgi-file gitspace/main.py
+uwsgi --http :80 --wsgi-file gitspace/main.py
