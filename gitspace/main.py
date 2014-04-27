@@ -1,3 +1,4 @@
+from gitspace import launchspace
 import logging
 import os
 from dulwich import errors
@@ -22,8 +23,20 @@ class Backend(server.Backend):
   def open_repository(cls, path):
     assert '..' not in path
     path = path.lstrip('/')
-    path = path.rstrip('.git')
-    path = os.path.join(GIT_ROOT, path)
+    if path.endswith('.git'):
+      path = path[:-4]
+
+    owner_nickname, project_nickname = path.split('/')
+    ls = launchspace.Launchspace()
+    resp = ls.rpc('projects.get', {
+        'project': {
+            'nickname': project_nickname,
+            'owner': {'nickname': owner_nickname}
+        }
+    })
+
+    ident = resp['project']['ident']
+    path = os.path.join(GIT_ROOT, ident)
     try:
       return repo.Repo(path)
     except errors.NotGitRepository:
