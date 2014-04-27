@@ -1,10 +1,18 @@
+import logging
 import os
 from dulwich import web
 from dulwich import repo
 from dulwich import server
 
 
-os.environ['GITSPACE_ROOT'] = 'gitroot'
+ROOT = os.getenv('GROWDATA_DIR')
+GIT_ROOT = os.path.join(ROOT, 'repos')
+
+
+def setup():
+  if not os.path.exists(GIT_ROOT):
+    os.makedirs(GIT_ROOT)
+    logging.info('Creating directory: {}'.format(GIT_ROOT))
 
 
 class Backend(server.Backend):
@@ -14,7 +22,7 @@ class Backend(server.Backend):
     assert '..' not in path
     path = path.lstrip('/')
     path = path.rstrip('.git')
-    path = os.path.join(os.getenv('GITSPACE_ROOT', path))
+    path = os.path.join(GIT_ROOT, path)
     return repo.Repo(path)
 
 
