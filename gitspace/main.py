@@ -1,5 +1,6 @@
 import logging
 import os
+from dulwich import errors
 from dulwich import web
 from dulwich import repo
 from dulwich import server
@@ -23,7 +24,11 @@ class Backend(server.Backend):
     path = path.lstrip('/')
     path = path.rstrip('.git')
     path = os.path.join(GIT_ROOT, path)
-    return repo.Repo(path)
+    try:
+      return repo.Repo(path)
+    except errors.NotGitRepository:
+      os.makedirs(path)
+      return repo.Repo.init_bare(path)
 
 
 def get_git_app(environ):
