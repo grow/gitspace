@@ -1,5 +1,9 @@
 ## GCE configuration
 
+    # For building growsdk.
+    sudo apt-get install libxml2-dev
+    sudo apt-get install libxslt1-dev
+
     sudo apt-get install upstart
     sudo apt-get install nginx
     sudo apt-get install libpcre3 libpcre3-dev

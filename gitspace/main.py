@@ -8,6 +8,7 @@ from dulwich import server
 
 
 ROOT = os.getenv('GROWDATA_DIR')
+LAUNCHSPACE_HOST = os.getenv('LAUNCHSPACE_HOST')
 GIT_ROOT = os.path.join(ROOT, 'repos')
 
 
@@ -27,7 +28,7 @@ class Backend(server.Backend):
       path = path[:-4]
 
     owner_nickname, project_nickname = path.split('/')
-    ls = launchspace.Launchspace()
+    ls = launchspace.Launchspace(host=LAUNCHSPACE_HOST)
     resp = ls.rpc('projects.get', {
         'project': {
             'nickname': project_nickname,
@@ -35,24 +36,14 @@ class Backend(server.Backend):
         }
     })
 
-    ident = resp['project']['ident']
+    ident = str(resp['project']['ident'])
     path = os.path.join(GIT_ROOT, ident)
     try:
       return repo.Repo(path)
     except errors.NotGitRepository:
+      logging.info('Creating repo: {}'.format(path))
       os.makedirs(path)
-      return repo.Repo.init_bare(path)
+      return repo.Repo.init(path)
 
 
-def get_git_app(environ):
-  return web.HTTPGitApplication(Backend())
-
-
-def repo_application():
-  def middleware(environ, start_response):
-    git_app = get_git_app(environ)
-    return git_app(environ, start_response)
-  return middleware
-
-
-application = repo_application()
+application = web.HTTPGitApplication(Backend())
