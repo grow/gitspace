@@ -1,9 +1,11 @@
 ## GCE configuration
 
+    sudo apt-get install upstart
     sudo apt-get install nginx
     sudo apt-get install libpcre3 libpcre3-dev
     sudo apt-get install uwsgi
 
+    sudo ln -s gitspace_uwsgi.conf /etc/init/
     sudo ln -s gitspace_nginx.conf /etc/nginx/sites-enabled/
 
     sudo mkdir /mnt/pd0
