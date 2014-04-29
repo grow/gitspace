@@ -1,9 +1,15 @@
 #!/usr/bin/python
 
-from gitspace import builders
-import subprocess
+import logging
 import os
+import subprocess
 import sys
+
+real_path = os.path.realpath(__file__)
+root = os.path.abspath(os.path.join(os.path.dirname(real_path), '..', '..'))
+sys.path.insert(0, os.path.abspath(root))
+
+from gitspace import builders
 
 
 def handle_ref(old_sha, new_sha, ref_name):
@@ -18,10 +24,10 @@ def handle_ref(old_sha, new_sha, ref_name):
       branch_names.append(branch_name)
 
   for branch in branch_names:
-    repo_dir = os.path.join(os.path.dirname(__file__), '..')
-    ident = repo_dir.split('/')[-1]
-    builder = builders.Builder.create(ident, repo_dir, branch=branch)
-    print 'Received branches: {}'.format(branch_names)
+    logging.info('Building branch {}...'.format(branch))
+    repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    ident = str(repo_dir.split('/')[-1])
+    builders.Builder.run(ident, repo_dir, branch=branch)
 
 
 if __name__ == '__main__':

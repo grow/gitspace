@@ -1,10 +1,11 @@
-import subprocess
-import launchspace
-import mimetypes
 import base64
+import launchspace
+import logging
 import md5
+import mimetypes
 import os
 import requests
+import subprocess
 import sys
 import threading
 
@@ -79,8 +80,14 @@ class Builder(object):
       raise ValueError('Platform unsupported.')
     root = os.path.join(root, platform)
     # TODO: Use version of Grow SDK that the pod is targeting.
-    path = os.path.join(root, 'grow')
+    version = '0.0.28'
+    path = os.path.join(root, version, 'grow')
     return path
+
+  @classmethod
+  def run(cls, ident, repo_dir, branch):
+    builder = cls.create(ident, repo_dir, branch)
+    builder.upload()
 
   @classmethod
   def create(cls, ident, repo_dir, branch):
@@ -89,61 +96,58 @@ class Builder(object):
       os.makedirs(work_dir)
 
     # Clone the branch into the pod directory.
-    print 'Cloning into work directory...'
     pod_dir = os.path.join(work_dir, 'pod')
     if not os.path.exists(pod_dir):
       os.makedirs(pod_dir)
-    proc = subprocess.Popen(
-        ['/usr/bin/git', 'clone', '-b', branch, repo_dir, pod_dir],
-        stdout=subprocess.PIPE)
-    print proc.stdout.readlines()
+    subprocess.call(['/usr/bin/git', 'clone', '-b', branch, repo_dir, pod_dir])
 
     # Build the pod into the build directory.
-    print 'Building...'
     build_dir = os.path.join(work_dir, 'build')
+    print 'Building to: {}...'.format(build_dir)
     growsdk = cls.get_growsdk_path()
     if not os.path.exists(build_dir):
       os.makedirs(build_dir)
-    proc = subprocess.Popen(
-        [growsdk, 'build', pod_dir, build_dir],
-        stdout=subprocess.PIPE)
-    print proc.stdout.readlines()
+    subprocess.call([growsdk, 'build', pod_dir, build_dir])
 
-    return cls(ident=ident, root=pod_dir, branch=branch)
+    return cls(ident=ident, root=build_dir, branch=branch)
 
-  def create_fileset(self):
+  def upload(self):
     fileset = {
         'name': self.branch,
         'project': {'ident': self.ident},
     }
     paths_to_contents = self.get_paths_to_contents_from_build(self.root)
+
     print 'Signing requests for {} files.'.format(len(paths_to_contents))
     sign_requests_request = self.gs_session.create_sign_requests_request(
         fileset, paths_to_contents)
     resp = self.launchspace.rpc('filesets.sign_requests', sign_requests_request)
     self.upload_build(resp['signed_requests'], paths_to_contents)
+    preview_url = resp['fileset']['url']
+    logging.info('Preview at: {}'.format(preview_url))
 
   def upload_build(self, signed_requests, paths_to_contents):
     # TODO(jeremydw): Thread pool.
     threads = []
     for req in signed_requests:
+      print 'Uploading: {}'.format(req['path'])
       file_path = req['path']
       thread = threading.Thread(
           target=self.gs_session.execute_signed_upload,
           args=(req, paths_to_contents[file_path]))
       threads.append(thread)
-      print 'Uploading {}'.format(file_path)
+      logging.info('Uploading: {}'.format(file_path))
       thread.start()
     for thread in threads:
       thread.join()
 
   def get_paths_to_contents_from_build(self, root):
     paths_to_contents = {}
-    for root, _, files in os.walk(root):
+    for pre, _, files in os.walk(root):
       for f in files:
-        path = os.path.join(root, f)
+        path = os.path.join(pre, f)
         fp = open(path)
-        path = path.replace(root, '')
+        path = path.replace(pre, '')
         if not path.startswith('/'):
           path = '/{}'.format(path)
         content = fp.read()
