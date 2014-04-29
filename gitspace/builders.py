@@ -5,6 +5,7 @@ import md5
 import mimetypes
 import os
 import requests
+import shutil
 import subprocess
 import sys
 import threading
@@ -99,8 +100,7 @@ class Builder(object):
 
     # Clone the branch into the pod directory.
     pod_dir = os.path.join(work_dir, 'pod')
-    if not os.path.exists(pod_dir):
-      os.makedirs(pod_dir)
+    shutil.rmtree(pod_dir)
     subprocess.call(['/usr/bin/git', 'clone', '-b', branch, repo_dir, pod_dir])
 
     # Build the pod into the build directory.
