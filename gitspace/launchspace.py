@@ -1,5 +1,9 @@
+import os
 import json
 import requests
+
+
+HOST = os.getenv('LAUNCHSPACE_HOST', 'localhost:8080')
 
 
 class Error(Exception):
@@ -22,7 +26,7 @@ class RpcError(Error):
 
 class Launchspace(object):
 
-  def __init__(self, host='growlaunches.com'):
+  def __init__(self, host=HOST):
     self.host = host
 
   def rpc(self, path, body=None):

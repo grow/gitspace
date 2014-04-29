@@ -1,16 +1,21 @@
 #!/usr/bin/python
 
+from gitspace import builders
 import subprocess
 import sys
 
 
 def handle_ref(old_sha, new_sha, ref_name):
   branch_names = []
-  proc = subprocess.Popen(['/usr/bin/git', 'rev-parse', '--symbolic', '--abbrev-ref', ref_name], stdout=subprocess.PIPE)
+  proc = subprocess.Popen(
+      ['/usr/bin/git', 'rev-parse', '--symbolic', '--abbrev-ref', ref_name],
+      stdout=subprocess.PIPE)
   for line in proc.stdout:
     branch_name = line.strip()
     if branch_name:
       branch_names.append(branch_name)
+
+  builder = builders.Builder()
   print 'Received branches: {}'.format(branch_names)
 
 

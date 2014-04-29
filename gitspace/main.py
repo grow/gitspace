@@ -5,7 +5,6 @@ import os
 
 
 ROOT = os.getenv('GROWDATA_DIR', '/tmp/growdata')
-LAUNCHSPACE_HOST = os.getenv('LAUNCHSPACE_HOST', 'localhost:8080')
 REPOS_ROOT = os.path.join(ROOT, 'repos')
 
 
@@ -39,7 +38,7 @@ class GitBackendApplication(object):
 
     owner_nickname, project_nickname, remainder = environ['PATH_INFO'].lstrip('/').split('/', 2)
 
-    ls = launchspace.Launchspace(host=LAUNCHSPACE_HOST)
+    ls = launchspace.Launchspace()
     try:
       resp = ls.rpc('projects.get', {
           'project': {
@@ -56,11 +55,19 @@ class GitBackendApplication(object):
     environ['PATH_TRANSLATED'] = path + '/.git'
     environ['PATH_INFO'] = '/' + remainder
 
+    # Create repo if it doesn't exist.
     try:
       os.makedirs(path)
       repo.Repo.init_bare(path)
     except OSError:
       pass
+
+    # Set up post-receive symlink.
+    link_name = os.path.join(path, 'hooks', 'post-receive')
+    if os.path.lexists(link_name):
+      os.remove(link_name)
+    executable = os.path.abspath(os.path.join(os.path.dirname(__file__), 'hooks', 'post-receive'))
+    os.symlink(executable, link_name)
 
     status_line, headers, response_generator = git_http_backend.wsgi_to_git_http_backend(
         environ, git_project_root=path)
