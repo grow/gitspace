@@ -9,6 +9,8 @@ import subprocess
 import sys
 import threading
 
+GROWDATA_DIR = os.getenv('GROWDATA_DIR', '/tmp/growdata')
+
 
 class GoogleStorageSigningSession(object):
 
@@ -91,7 +93,7 @@ class Builder(object):
 
   @classmethod
   def create(cls, ident, repo_dir, branch):
-    work_dir = '/tmp/growdata/work/{}'.format(ident)
+    work_dir = os.path.join(GROWDATA_DIR, 'work', ident)
     if not os.path.exists(work_dir):
       os.makedirs(work_dir)
 
