@@ -124,13 +124,13 @@ class Builder(object):
     resp = self.launchspace.rpc('filesets.sign_requests', sign_requests_request)
     self.upload_build(resp['signed_requests'], paths_to_contents)
     preview_url = resp['fileset']['url']
-    logging.info('Preview at: {}'.format(preview_url))
+    print 'Preview at: {}'.format(preview_url)
 
   def upload_build(self, signed_requests, paths_to_contents):
     # TODO(jeremydw): Thread pool.
+    print 'Uploading files...'
     threads = []
     for req in signed_requests:
-      print 'Uploading: {}'.format(req['path'])
       file_path = req['path']
       thread = threading.Thread(
           target=self.gs_session.execute_signed_upload,
