@@ -150,7 +150,7 @@ class Builder(object):
       for f in files:
         path = os.path.join(pre, f)
         fp = open(path)
-        path = path.replace(pre, '')
+        path = path.replace(root, '')
         if not path.startswith('/'):
           path = '/{}'.format(path)
         content = fp.read()
