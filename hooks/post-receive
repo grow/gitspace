@@ -1,0 +1,19 @@
+#!/usr/bin/python
+
+import subprocess
+import sys
+
+
+def handle_ref(old_sha, new_sha, ref_name):
+  branch_names = []
+  proc = subprocess.Popen(['/usr/bin/git', 'rev-parse', '--symbolic', '--abbrev-ref', ref_name], stdout=subprocess.PIPE)
+  for line in proc.stdout:
+    branch_name = line.strip()
+    if branch_name:
+      branch_names.append(branch_name)
+  print 'Received branches: {}'.format(branch_names)
+
+
+if __name__ == '__main__':
+  for line in sys.stdin:
+    handle_ref(*line.split())

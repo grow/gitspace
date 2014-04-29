@@ -1,69 +1,12 @@
-from gitspace import launchspace
-import logging
-import os
-from dulwich import errors
-from dulwich import web
 from dulwich import repo
-from dulwich import server
+from gitspace import git_http_backend
+from gitspace import launchspace
+import os
 
 
 ROOT = os.getenv('GROWDATA_DIR', '/tmp/growdata')
 LAUNCHSPACE_HOST = os.getenv('LAUNCHSPACE_HOST', 'localhost:8080')
 REPOS_ROOT = os.path.join(ROOT, 'repos')
-
-
-def setup():
-  if not os.path.exists(REPOS_ROOT):
-    os.makedirs(REPOS_ROOT)
-    logging.info('Creating directory: {}'.format(REPOS_ROOT))
-
-
-
-class PostCommitHook(object):
-
-  def __init__(self, controldir):
-    self.controldir = controldir
-
-  def execute(self):
-    print 'executed hook YAY!'
-
-
-class Repo(repo.Repo):
-
-  def __init__(self, *args, **kwargs):
-    super(Repo, self).__init__(*args, **kwargs)
-    self.hooks['post-commit'] = PostCommitHook(self.controldir())
-
-
-class Backend(server.Backend):
-
-  @classmethod
-  def open_repository(cls, path):
-    assert '..' not in path
-    path = path.lstrip('/')
-    if path.endswith('.git'):
-      path = path[:-4]
-
-    owner_nickname, project_nickname = path.split('/')
-    ls = launchspace.Launchspace(host=LAUNCHSPACE_HOST)
-    try:
-      resp = ls.rpc('projects.get', {
-          'project': {
-              'nickname': project_nickname,
-              'owner': {'nickname': owner_nickname}
-          }
-      })
-    except launchspace.RpcError as e:
-      raise NotFoundError(e['error_message'])
-
-    ident = str(resp['project']['ident'])
-    path = os.path.join(REPOS_ROOT, ident)
-    try:
-      return Repo(path)
-    except errors.NotGitRepository:
-      logging.info('Creating repo: {}'.format(path))
-      os.makedirs(path)
-      return repo.Repo.init(path)
 
 
 class Error(Exception):
@@ -74,8 +17,6 @@ class NotFoundError(Error):
   pass
 
 
-from gitspace import git_http_backend
-
 class GitBackendApplication(object):
 
   def __init__(self):
@@ -84,7 +25,7 @@ class GitBackendApplication(object):
 
   def error(self, message):
     self.start_response('404', [('Content-Type', 'text/plain'),])
-    return [message]
+    return [str(message)]
 
   def __call__(self, environ, start_response):
     self.environ = environ
@@ -108,7 +49,6 @@ class GitBackendApplication(object):
       })
     except launchspace.RpcError as e:
       return self.error(e['error_message'])
-#      raise NotFoundError(e['error_message'])
 
     ident = str(resp['project']['ident'])
     path = os.path.join(REPOS_ROOT, ident)
@@ -129,4 +69,3 @@ class GitBackendApplication(object):
 
 
 application = GitBackendApplication()
-#application = web.HTTPGitApplication(Backend())
