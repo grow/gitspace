@@ -2,6 +2,7 @@
 
 from gitspace import builders
 import subprocess
+import os
 import sys
 
 
@@ -10,13 +11,17 @@ def handle_ref(old_sha, new_sha, ref_name):
   proc = subprocess.Popen(
       ['/usr/bin/git', 'rev-parse', '--symbolic', '--abbrev-ref', ref_name],
       stdout=subprocess.PIPE)
+
   for line in proc.stdout:
     branch_name = line.strip()
     if branch_name:
       branch_names.append(branch_name)
 
-  builder = builders.Builder()
-  print 'Received branches: {}'.format(branch_names)
+  for branch in branch_names:
+    repo_dir = os.path.join(os.path.dirname(__file__), '..')
+    ident = repo_dir.split('/')[-1]
+    builder = builders.Builder.create(ident, repo_dir, branch=branch)
+    print 'Received branches: {}'.format(branch_names)
 
 
 if __name__ == '__main__':

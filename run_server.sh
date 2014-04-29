@@ -1,0 +1,1 @@
+uwsgi devserver.ini

@@ -1,9 +1,11 @@
+import subprocess
 import launchspace
 import mimetypes
 import base64
 import md5
 import os
 import requests
+import sys
 import threading
 
 
@@ -59,21 +61,60 @@ class GoogleStorageSigningSession(object):
 
 class Builder(object):
 
-  def __init__(self, root, branch, project, owner):
+  def __init__(self, ident, root, branch):
+    self.ident = ident
     self.root = root
     self.branch = branch
-    self.project = project
-    self.owner = owner
     self.gs_session = GoogleStorageSigningSession()
     self.launchspace = launchspace.Launchspace()
+
+  @classmethod
+  def get_growsdk_path(cls):
+    root = os.path.join(os.path.dirname(__file__), 'growsdk')
+    if sys.platform.startswith('linux'):
+      platform = 'linux'
+    elif sys.platform == 'darwin':
+      platform = 'mac'
+    else:
+      raise ValueError('Platform unsupported.')
+    root = os.path.join(root, platform)
+    # TODO: Use version of Grow SDK that the pod is targeting.
+    path = os.path.join(root, 'grow')
+    return path
+
+  @classmethod
+  def create(cls, ident, repo_dir, branch):
+    work_dir = '/tmp/growdata/work/{}'.format(ident)
+    if not os.path.exists(work_dir):
+      os.makedirs(work_dir)
+
+    # Clone the branch into the pod directory.
+    print 'Cloning into work directory...'
+    pod_dir = os.path.join(work_dir, 'pod')
+    if not os.path.exists(pod_dir):
+      os.makedirs(pod_dir)
+    proc = subprocess.Popen(
+        ['/usr/bin/git', 'clone', '-b', branch, repo_dir, pod_dir],
+        stdout=subprocess.PIPE)
+    print proc.stdout.readlines()
+
+    # Build the pod into the build directory.
+    print 'Building...'
+    build_dir = os.path.join(work_dir, 'build')
+    growsdk = cls.get_growsdk_path()
+    if not os.path.exists(build_dir):
+      os.makedirs(build_dir)
+    proc = subprocess.Popen(
+        [growsdk, 'build', pod_dir, build_dir],
+        stdout=subprocess.PIPE)
+    print proc.stdout.readlines()
+
+    return cls(ident=ident, root=pod_dir, branch=branch)
 
   def create_fileset(self):
     fileset = {
         'name': self.branch,
-        'project': {
-            'nickname': self.project,
-            'owner': {'nickname': self.owner}
-        },
+        'project': {'ident': self.ident},
     }
     paths_to_contents = self.get_paths_to_contents_from_build(self.root)
     print 'Signing requests for {} files.'.format(len(paths_to_contents))
