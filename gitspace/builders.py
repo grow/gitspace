@@ -100,7 +100,8 @@ class Builder(object):
 
     # Clone the branch into the pod directory.
     pod_dir = os.path.join(work_dir, 'pod')
-    shutil.rmtree(pod_dir)
+    if os.path.exists(pod_dir):
+      shutil.rmtree(pod_dir)
     subprocess.call(['/usr/bin/git', 'clone', '-b', branch, repo_dir, pod_dir])
 
     # Build the pod into the build directory.
