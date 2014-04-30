@@ -3,7 +3,7 @@ import json
 import requests
 
 
-HOST = os.getenv('LAUNCHSPACE_HOST', 'localhost:8080')
+HOST = os.getenv('LAUNCHSPACE_HOST', 'growlaunches.com')
 
 
 class Error(Exception):
