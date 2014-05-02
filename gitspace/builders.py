@@ -1,75 +1,23 @@
-import base64
 import launchspace
 import logging
-import md5
-import mimetypes
 import os
-import requests
 import shutil
 import subprocess
 import sys
 import threading
+import git_utils
 
 GROWDATA_DIR = os.getenv('GROWDATA_DIR', '/tmp/growdata')
 
 
-class GoogleStorageSigningSession(object):
-
-  @staticmethod
-  def create_unsigned_request(verb, path, content=None):
-    req = {
-      'path': path,
-      'verb': verb,
-    }
-    if verb == 'PUT':
-      if path.endswith('/'):
-        mimetype = 'text/html'
-      else:
-        mimetype = mimetypes.guess_type(path)[0]
-        mimetype = mimetype or 'application/octet-stream'
-      md5_digest = base64.b64encode(md5.new(content).digest())
-      req['headers'] = {}
-      req['headers']['content_length'] = str(len(content))
-      req['headers']['content_md5'] = md5_digest
-      req['headers']['content_type'] = mimetype
-    return req
-
-  def create_sign_requests_request(self, fileset, paths_to_contents):
-    unsigned_requests = []
-    for path, content in paths_to_contents.iteritems():
-      req = self.create_unsigned_request('PUT', path, content)
-      unsigned_requests.append(req)
-    return {
-        'fileset': fileset,
-        'unsigned_requests': unsigned_requests,
-    }
-
-  @staticmethod
-  def execute_signed_upload(signed_request, content):
-    req = signed_request
-    params = {
-        'GoogleAccessId': req['params']['google_access_id'],
-        'Signature': req['params']['signature'],
-        'Expires': req['params']['expires'],
-    }
-    headers = {
-        'Content-Type': req['headers']['content_type'],
-        'Content-MD5': req['headers']['content_md5'],
-        'Content-Length': req['headers']['content_length'],
-    }
-    resp = requests.put(req['url'], params=params, headers=headers, data=content)
-    if not (resp.status_code >= 200 and resp.status_code < 205):
-      raise Exception(resp.text)
-    return resp
-
-
 class Builder(object):
 
-  def __init__(self, ident, root, branch):
+  def __init__(self, ident, build_dir, branch, pod_dir):
     self.ident = ident
-    self.root = root
+    self.build_dir = build_dir
+    self.pod_dir = pod_dir
     self.branch = branch
-    self.gs_session = GoogleStorageSigningSession()
+    self.gs_session = launchspace.GoogleStorageSigningSession()
     self.launchspace = launchspace.Launchspace()
 
   @classmethod
@@ -94,7 +42,7 @@ class Builder(object):
 
   @classmethod
   def create(cls, ident, repo_dir, branch):
-    work_dir = os.path.join(GROWDATA_DIR, 'work', ident)
+    work_dir = os.path.join(GROWDATA_DIR, 'work', ident, branch)
     if not os.path.exists(work_dir):
       os.makedirs(work_dir)
 
@@ -112,22 +60,35 @@ class Builder(object):
       os.makedirs(build_dir)
     subprocess.call([growsdk, 'build', pod_dir, build_dir])
 
-    return cls(ident=ident, root=build_dir, branch=branch)
+    return cls(ident=ident, build_dir=build_dir, branch=branch, pod_dir=pod_dir)
 
   def upload(self):
     fileset = {
         'name': self.branch,
         'project': {'ident': self.ident},
     }
-    paths_to_contents = self.get_paths_to_contents_from_build(self.root)
+    paths_to_contents = self.get_paths_to_contents_from_build(self.build_dir)
 
-    print 'Signing requests for {} files.'.format(len(paths_to_contents))
     sign_requests_request = self.gs_session.create_sign_requests_request(
         fileset, paths_to_contents)
     resp = self.launchspace.rpc('filesets.sign_requests', sign_requests_request)
-    self.upload_build(resp['signed_requests'], paths_to_contents)
-    preview_url = resp['fileset']['url']
-    print 'Preview at: {}'.format(preview_url)
+    if 'signed_requests' not in resp:
+      print 'Nothing to upload.'
+      return
+
+    if os.getenv('SERVER_SOFTWARE') == 'Production':
+      self.upload_build(resp['signed_requests'], paths_to_contents)
+      preview_url = resp['fileset']['url']
+      print 'Preview at: {}'.format(preview_url)
+
+    items = git_utils.get_formatted_log_items(self.pod_dir, branch=self.branch)
+    resp = self.launchspace.rpc('filesets.finalize', {
+        'fileset': {
+            'ident': resp['fileset']['ident'],
+            'log': {'items': items},
+        },
+    })
+
 
   def upload_build(self, signed_requests, paths_to_contents):
     # TODO(jeremydw): Thread pool.
@@ -144,13 +105,13 @@ class Builder(object):
     for thread in threads:
       thread.join()
 
-  def get_paths_to_contents_from_build(self, root):
+  def get_paths_to_contents_from_build(self, build_dir):
     paths_to_contents = {}
-    for pre, _, files in os.walk(root):
+    for pre, _, files in os.walk(build_dir):
       for f in files:
         path = os.path.join(pre, f)
         fp = open(path)
-        path = path.replace(root, '')
+        path = path.replace(build_dir, '')
         if not path.startswith('/'):
           path = '/{}'.format(path)
         content = fp.read()
