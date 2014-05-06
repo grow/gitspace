@@ -1,5 +1,6 @@
 import launchspace
 import logging
+import json
 import os
 import shutil
 import subprocess
@@ -31,7 +32,7 @@ class Builder(object):
       raise ValueError('Platform unsupported.')
     root = os.path.join(root, platform)
     # TODO: Use version of Grow SDK that the pod is targeting.
-    version = '0.0.28'
+    version = '0.0.29'
     path = os.path.join(root, version, 'grow')
     return path
 
@@ -58,7 +59,7 @@ class Builder(object):
     growsdk = cls.get_growsdk_path()
     if not os.path.exists(build_dir):
       os.makedirs(build_dir)
-    subprocess.call([growsdk, 'build', pod_dir, build_dir])
+    subprocess.call([growsdk, 'build', '--dot_grow_dir', pod_dir, build_dir])
 
     return cls(ident=ident, build_dir=build_dir, branch=branch, pod_dir=pod_dir)
 
@@ -82,10 +83,14 @@ class Builder(object):
       print 'Preview at: {}'.format(preview_url)
 
     items = git_utils.get_formatted_log_items(self.pod_dir, branch=self.branch)
+    stats = json.load(open(os.path.join(self.build_dir, '.grow', 'stats.json')))
+    resources = git_utils.get_resources(os.path.join(self.build_dir, '.grow', 'index.yaml'))
     resp = self.launchspace.rpc('filesets.finalize', {
         'fileset': {
             'ident': resp['fileset']['ident'],
+            'resources': resources,
             'log': {'items': items},
+            'stats': stats,
         },
     })
 

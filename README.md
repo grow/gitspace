@@ -16,3 +16,8 @@
     sudo /usr/share/google/safe_format_and_mount -m "mkfs.ext4 -F" /dev/sdb /mnt/pd0
     sudo chmod a+w /mnt/pd0
     mkdir -p /mnt/pd0/growdata/git
+
+### Installing PageSpeed
+
+    svn checkout http://gyp.googlecode.com/svn/trunk/ gyp-read-only
+    python setup.py install

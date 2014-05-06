@@ -1,5 +1,7 @@
 import git
 import os
+import yaml
+
 os.environ.pop('GIT_DIR', '')
 
 
@@ -18,3 +20,13 @@ def get_formatted_log_items(root, branch):
     })
   return items
 
+
+def get_resources(index_path):
+  index = yaml.load(open(index_path))
+  resources = []
+  for path, sha in index.iteritems():
+    resources.append({
+      'path': path,
+      'sha': sha,
+    })
+  return resources
